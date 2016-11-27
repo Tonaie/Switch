@@ -254,8 +254,8 @@ default
             }
             
         }
-        
-        if(DIFFICULTY > 0){
+        // Give normal bots a 20% chance of a misplay
+        if(DIFFICULTY > 0 && (DIFFICULTY == 2 || llFrand(1) < 0.8)){
             // We go first
             if(roundcolor == -1 && (DIFFICULTY >= 2 || llFrand(1)<.5)){
                 
@@ -533,6 +533,9 @@ default
         //qd("Playing card:deck "+(str)cardNumber(play)+":"+(str)cardDeckNumber(play));
         
     }
+	
+	else if(METHOD == swBotMethod$setDifficulty)
+		DIFFICULTY = l2i(PARAMS, 0);
     
     // End link message code
     #define LM_BOTTOM  

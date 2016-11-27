@@ -48,7 +48,7 @@ integer GAME_SCORE_BLUE;
 // Updates the Board with cards played
 #define refreshCardsPlayed() swBoard$setCardsPlayedShort(CARDS_PLAYED, CARDS_PLAYED_FX)
 // Updates the board with player turn
-#define refreshTurn(won) swBoard$setPlayerTurn(TURN, won)
+#define refreshTurn(turn, won) swBoard$setPlayerTurn(turn, won)
 #define refreshGameScore() swBoard$setScore(GAME_SCORE_BLUE, GAME_SCORE_RED)
 #define refreshColorScore() swBoard$colorScore(COLOR_SCORE_BLUE, COLOR_SCORE_RED) 
 
@@ -90,9 +90,7 @@ onCardPlayed(integer card){
     }
     // First card in a round
     if(isFirst){
-        
-        
-        
+
         swBoard$setRoundColor(color);
         
         integer i;
@@ -117,14 +115,15 @@ onCardPlayed(integer card){
     
     // Advance turn
     ++TURN;
-    if(TURN>=count(PLAYERS))
+    if(TURN >= count(PLAYERS))
         TURN = 0;
     
     // We have looped around, handle end of turn
-    if(TURN == FIRST_TURN)
+    if(TURN == FIRST_TURN){
         TURN = -1;
-    
-    refreshTurn(FALSE);
+    }
+	
+    refreshTurn(TURN, FALSE);
     refreshCardsPlayed();
     
     // We've reached end of turn, calculate round end
@@ -136,8 +135,9 @@ onCardPlayed(integer card){
     
 }
 
-onRoundStart(){
+onRoundStart(integer turn){
     
+	TURN = turn;
     FIRST_TURN = TURN;
     
     // Reset cards played
@@ -157,7 +157,7 @@ onRoundStart(){
         swHUD$setRoundColor(targ, -1);
     )
     
-    refreshTurn(FALSE);
+    refreshTurn(TURN, FALSE);
     
     // If this player is a bot, request a play
     getBotPlay();
@@ -230,19 +230,17 @@ onRoundEnd(){
     refreshColorScore();
     raiseEvent(swGameEvt$colorScore, mkarr(([COLOR_SCORE_BLUE, COLOR_SCORE_RED])));
     
-    TURN = HIGHEST_PLAYER;
-    
     integer sub = switches%2;
-    refreshTurn(!sub);
+    refreshTurn(HIGHEST_PLAYER, !sub);
     
-    list out = [TURN, mkarr(fxs)];
+    list out = [HIGHEST_PLAYER, mkarr(fxs)];
     raiseEvent(swGameEvt$roundEnd, mkarr(out));
     
     for(i=0; i<NUM_CARDS; ++i){
         
         if(llList2Integer(PLAYER_CARDS, i) != -1){
             
-            multiTimer(["ROUND_START", "", 2, FALSE]);
+            multiTimer(["ROUND_START", (str)HIGHEST_PLAYER, 2, FALSE]);
             return;
             
         }
@@ -270,7 +268,7 @@ onSetStart(){
     if(++TURN_POINTER > 3)
         TURN_POINTER = 0;
     TURN = TURN_POINTER;
-    refreshTurn(FALSE);                  // Updates turn for the set
+    refreshTurn(TURN, FALSE);                  // Updates turn for the set
     
     // Start by evenly distributing the prismatics
     list prism;
@@ -356,7 +354,7 @@ onSetStart(){
     
     raiseEvent(swGameEvt$setStart, "");
     
-    onRoundStart();
+    onRoundStart(TURN);
     
     
 }
@@ -562,8 +560,9 @@ timerEvent(string id, string data){
     else if(id == "ROUND_END")
         onRoundEnd();
     
-    else if(id == "ROUND_START")
-        onRoundStart();
+    else if(id == "ROUND_START"){
+        onRoundStart((int)data);
+	}
     
     else if(id == "SET_END")
         onSetEnd();
@@ -616,7 +615,7 @@ default
         
         // Resets
         refreshCardsPlayed();
-        refreshTurn(FALSE);
+        refreshTurn(-1, FALSE);
         
         links_each(nr, name,
             
@@ -690,7 +689,7 @@ default
     
     if(METHOD == swGameMethod$playCard){
         
-        // Just ignore it if no turn is set
+        // Ignore it if no turn is set
         if(TURN == -1)
             return;
         
