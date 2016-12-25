@@ -508,7 +508,7 @@ default
         }
         
         // Pick a card at random, since heuristics failed
-        if(play == -1){
+        if(play <= 0){
             
             play = (int)randElem(viable);
             reason("Heuristics failed:");
@@ -525,6 +525,10 @@ default
             */
         }
         
+		if(play == 0){
+			qd("Bot play failed. Held cards were: "+mkarr(cards));
+			qd("Viable: "+mkarr(viable));
+		}
         
         multiTimer(["PLAY", play, .5, FALSE]);
         
@@ -534,8 +538,9 @@ default
         
     }
 	
-	else if(METHOD == swBotMethod$setDifficulty)
+	else if(METHOD == swBotMethod$setDifficulty){
 		DIFFICULTY = l2i(PARAMS, 0);
+	}
     
     // End link message code
     #define LM_BOTTOM  

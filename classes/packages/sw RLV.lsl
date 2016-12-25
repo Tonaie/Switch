@@ -10,7 +10,7 @@ integer PLAYER_CLOTHES;     // Split into 4 pieces of 8 (1 per player). The 2 ri
 
 // Refreshes the clothing status in the JasX HUD if the target is an avatar
 #define outputClothesIfAvatar(index) \
-    if(llGetListEntryType(PLAYERS, index) != TYPE_INTEGER){ \
+    if(llGetListEntryType(PLAYERS, index) != TYPE_INTEGER && BFL&BFL_GAME_ACTIVE){ \
         swHUD$setClothes(l2s(PLAYERS, index), getPlayerClothes(index)); \
     }
 
@@ -30,6 +30,7 @@ integer BFL;
 #define BFL_VIB_UP 0x1
 #define BFL_PERM_QUEUE 0x2
 #define BFL_DISABLE_VIBRATOR 0x4
+#define BFL_GAME_ACTIVE 0x8
 
 #define VIB_BASE_HEIGHT 0.619873
 #define VIB_BASE_SCALE <0.399834, 0.198138, 0.209000>
@@ -50,6 +51,8 @@ onEvt(string script, integer evt, list data){
         
         if(evt == swGameEvt$gameStart){
             
+			BFL = BFL|BFL_GAME_ACTIVE;
+			
             // Reset clothes
             PLAYER_CLOTHES = 0;
             integer i;
@@ -76,6 +79,10 @@ onEvt(string script, integer evt, list data){
             toggleChairs(chairs);
             
         }
+		
+		else if(evt == swGameEvt$gameEnd){
+			BFL = BFL&~BFL_GAME_ACTIVE;
+		}
         
         else if(evt == swGameEvt$roundEnd){
             
@@ -184,6 +191,8 @@ timerEvent(string id, string data){
         PP(0, out);
         
     }
+	
+	// Vibration start
     else if(llGetSubString(id, 0, 2) == "VS:"){
         
         integer player = (int)llGetSubString(id, 3, 3);

@@ -39,7 +39,7 @@
 // Num cards in each color
 #define CARDS_IN_DECK 12
 
-#define TX_CARDS "651b579f-c239-835c-f05e-28625cc73107"
+#define TX_CARDS "09994fba-f2e6-3122-2301-60dd8872ac85"
 #define TX_CARDS_X 8
 #define TX_CARDS_Y 6
 

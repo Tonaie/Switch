@@ -167,6 +167,7 @@ default
             BOT_DIFFICULTY = llListFindList(BOT_DIFFICULTIES, [message]); \
             if(BOT_DIFFICULTY<0)BOT_DIFFICULTY = 0;\
             swBot$setDifficulty(BOT_DIFFICULTY); \
+			runOnPlayers(targ,llRegionSayTo(targ, 0, "Bot difficulty is now "+(str)l2s(BOT_DIFFICULTIES, BOT_DIFFICULTY));) \
             dialog(MENU_BOT_DIFFICULTY, id); \
         } \
         else if(MENU == MENU_DEFAULT){ \

@@ -114,6 +114,75 @@ timerEvent(string id, string data){
     
 }
 
+// If team is -1, turns off
+scoreParticles(integer team, integer deck, integer switched){
+	
+	list data = [];
+	if(~team){
+		
+		vector color = <.5,1,.5>;
+		if(switched)
+			color = <1,.5,.5>;
+		
+		data = [  
+			PSYS_PART_FLAGS,
+				PSYS_PART_EMISSIVE_MASK|
+				PSYS_PART_INTERP_COLOR_MASK|
+				PSYS_PART_INTERP_SCALE_MASK|
+				PSYS_PART_RIBBON_MASK|
+				//PSYS_PART_BOUNCE_MASK|
+				//PSYS_PART_WIND_MASK|
+				//PSYS_PART_FOLLOW_SRC_MASK|
+				PSYS_PART_TARGET_POS_MASK|
+				PSYS_PART_FOLLOW_VELOCITY_MASK
+				
+			,
+			PSYS_PART_MAX_AGE, .5,
+			
+			PSYS_PART_START_COLOR, color,
+			PSYS_PART_END_COLOR, color,
+			
+			PSYS_PART_START_SCALE,<.2,.2,0>,
+			PSYS_PART_END_SCALE,<.2,.2,0>, 
+							
+			PSYS_SRC_PATTERN, PSYS_SRC_PATTERN_EXPLODE,
+			
+			PSYS_SRC_BURST_RATE, 0.01,
+			
+			PSYS_SRC_ACCEL, <0,0,12>,
+			
+			PSYS_SRC_BURST_PART_COUNT, 1,
+			
+			PSYS_SRC_BURST_RADIUS, 0.1,
+			
+			PSYS_SRC_BURST_SPEED_MIN, 0.0,
+			PSYS_SRC_BURST_SPEED_MAX, 0.1,
+			
+			PSYS_SRC_TARGET_KEY, llGetLinkKey(l2i(PRIM_BULBS, deck+team*4)),
+			
+			PSYS_SRC_ANGLE_BEGIN,   0.0, 
+			PSYS_SRC_ANGLE_END,     0.0,
+			
+			PSYS_SRC_OMEGA, <0,0,0>,
+			
+			PSYS_SRC_MAX_AGE, 2,
+							
+			PSYS_SRC_TEXTURE, "b6ac962c-ed64-de7d-ade0-b4333403d21b",
+			
+			PSYS_PART_START_ALPHA, 1,
+			PSYS_PART_END_ALPHA, 1,
+			
+			PSYS_PART_START_GLOW, 0.1,
+			PSYS_PART_END_GLOW, 0.1
+			
+		];
+		
+	}
+	
+	llLinkParticleSystem(PRIM_CENTER, data);
+
+}
+
 default
 {
     state_entry()
@@ -165,7 +234,7 @@ default
         // reset the score counters
         swBoard$setScore(0,0);
         
-        
+        scoreParticles(-1, 0, 0);
         
     }
     
@@ -190,7 +259,12 @@ default
     // Only allow internal code
     if(!(method$internal))
         return;
-        
+       
+	/*
+		
+		Places cards on the board
+		
+	*/
     if(METHOD == swBoardMethod$setCardsPlayed){
         
         // Bitwise combination going from left to right
@@ -219,11 +293,14 @@ default
                 integer y = llFloor(offset/TX_CARDS_X);
                 integer x = offset-(y*TX_CARDS_X);
                 out+= [PRIM_COLOR, ALL_SIDES, ZERO_VECTOR, 0, PRIM_FULLBRIGHT, ALL_SIDES, FALSE];
-                out+= [
+                
+				// Invalid card
+				out+= [
                     PRIM_COLOR, CARD_FACE_MAIN, <1,1,1>*.5, 1,
                     PRIM_COLOR, CARD_FACE_BORDER, <1,1,1>*.5, 1
                 ];
                 
+				// Valid card
                 if(ROUND_COLOR == deckPlayed || deckPlayed == DECK_PRISM)
                     out+= [
                         PRIM_FULLBRIGHT, ALL_SIDES, TRUE,
@@ -238,6 +315,7 @@ default
                     0
                 ];
                 
+				// Add special effect
                 if(~cardSpecial){
                     
                     float xscale = (float)TX_CARDS_X/TX_EFFECTS_X;
@@ -263,6 +341,13 @@ default
         
     }
     
+	
+	/*
+		
+		Sets active player's turn
+		If won is nonzero, that means they just won the round
+	
+	*/
     else if(METHOD == swBoardMethod$setPlayerTurn){
         
         integer player = l2i(PARAMS, 0);
@@ -278,13 +363,21 @@ default
                 
                 vector color = <1,1,1>; float glow = 0.1;
                 if(won == 1){
-                    color = <1,1,0>;
+				
+                    color = <0,1,0>;
                     glow = 0.3;
+					
                 }
                 else if(won == -1){
-                    color = <0,0,1>;
+				
+                    color = <1,0,0>;
                     glow = 0.3;
+					
                 }
+				
+				if(won != 0){
+					scoreParticles(player%2, ROUND_COLOR, won != 1);
+				}
                     
                 l = [PRIM_COLOR, face, color, 1, PRIM_FULLBRIGHT, face, TRUE, PRIM_GLOW, face, glow];
                 
@@ -380,7 +473,7 @@ default
                 integer score = l2i(scores, team);
                 
                 
-                list bulb = [PRIM_COLOR, BULB_FACE_LAMP, l2v(DECK_GLOWS, i)*.8, 1, PRIM_FULLBRIGHT, BULB_FACE_LAMP, FALSE, PRIM_GLOW, BULB_FACE_LAMP, 0];
+                list bulb = [PRIM_COLOR, BULB_FACE_LAMP, l2v(DECK_GLOWS, i)*.2, 1, PRIM_FULLBRIGHT, BULB_FACE_LAMP, FALSE, PRIM_GLOW, BULB_FACE_LAMP, 0];
                 if(team == winningTeam)
                     bulb = [PRIM_COLOR, BULB_FACE_LAMP, l2v(DECK_GLOWS, i), 1, PRIM_FULLBRIGHT, BULB_FACE_LAMP, TRUE, PRIM_GLOW, BULB_FACE_LAMP, .1];
                 out+= bulb;
@@ -396,10 +489,10 @@ default
                 ];
                 
                 // Colorize the score NUMBERS
-                if(winningTeam == team)
+                if(score > 0)
                     out+= [PRIM_COLOR, BULB_FACE_SCORE, <.5,1,.5>, 1];
-                else if(~winningTeam)
-                    out+= [PRIM_COLOR, BULB_FACE_SCORE, <1,.5,.5>, 1];
+                else if(score<0)
+                    out+= [PRIM_COLOR, BULB_FACE_SCORE, <0.5,.5,1>, 1];
                 else
                     out+= [PRIM_COLOR, BULB_FACE_SCORE, <1,1,1>, 1];
                 

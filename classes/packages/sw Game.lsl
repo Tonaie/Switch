@@ -230,8 +230,10 @@ onRoundEnd(){
     refreshColorScore();
     raiseEvent(swGameEvt$colorScore, mkarr(([COLOR_SCORE_BLUE, COLOR_SCORE_RED])));
     
-    integer sub = switches%2;
-    refreshTurn(HIGHEST_PLAYER, !sub);
+    integer won = !(switches%2);
+	if(!won)
+		won = -1;
+    refreshTurn(HIGHEST_PLAYER, won);
     
     list out = [HIGHEST_PLAYER, mkarr(fxs)];
     raiseEvent(swGameEvt$roundEnd, mkarr(out));
