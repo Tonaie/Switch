@@ -137,6 +137,8 @@ onEvt(string script, integer evt, list data){
                 llTriggerSound("a76b6a1f-60b1-9dc5-579a-92271bc8c71e", 1);
                 outputClothesIfAvatar(player);
                 
+				raiseEvent(swRLVEvt$clothes, (str)PLAYER_CLOTHES);
+				
             }else if(vibrate){
                 
                 list chairs = ([-1,-1,-1,-1]);
@@ -396,6 +398,8 @@ toggleChairs(list chairs){
     
     multiTimer(["V"]);
     
+	raiseEvent(swRLVEvt$vibrators, mkarr(VIBRATORS_ON));
+	
 }
 
 
