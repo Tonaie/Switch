@@ -57,12 +57,15 @@ integer GAME_SCORE_BLUE;
 #define COLOR_PLAYED ((CARDS_PLAYED>>(8*(3-FIRST_TURN)+4))&3)
 
 // Requests a bot play if the current turn is a bot
-#define getBotPlay() if(llGetListEntryType(PLAYERS, TURN) == TYPE_INTEGER)swBot$getPlay(llList2List(PLAYER_CARDS, TURN*NUM_CARDS, TURN*NUM_CARDS+NUM_CARDS-1), COLOR_PLAYED, CARDS_PLAYED, FIRST_TURN, TURN); else swHUD$setTurn(l2s(PLAYERS, TURN))
+#define getBotPlay() if(llGetListEntryType(PLAYERS, TURN) == TYPE_INTEGER && BFL&BFL_GAME_STARTED)swBot$getPlay(llList2List(PLAYER_CARDS, TURN*NUM_CARDS, TURN*NUM_CARDS+NUM_CARDS-1), COLOR_PLAYED, CARDS_PLAYED, FIRST_TURN, TURN); else swHUD$setTurn(l2s(PLAYERS, TURN))
 
 
 
 onCardPlayed(integer card){
     
+	if(~BFL&BFL_GAME_STARTED)
+		return;
+	
     integer isFirst = CARDS_PLAYED == 0;
     
     list cards = getPlayerCardsByIndex(TURN);
@@ -172,6 +175,8 @@ onRoundEnd(){
 
     // Calculate the winner
     integer HIGHEST_PLAYER;
+	integer LOWEST_PLAYER = -1;
+	integer LOWEST_VALUE = CARDS_IN_DECK*2+1;
     integer HIGHEST_VALUE = -1;     // Start at -1 because red switch is 0
     integer i;
     
@@ -186,18 +191,22 @@ onRoundEnd(){
         integer nr = cardNumber(card);
         integer deck = cardDeckNumber(card);
         
+		// in suit or prism
         if(deck == DECK_PRISM || deck == cc){
         
+			// Vib effects and stuff
             integer fx = (CARDS_PLAYED_FX>>(8*(3-i)))&255;
             if(fx)
                 fxs += fx;
             
+			// nr+1 because switch card is last and needs to be put first
             integer value = nr+1;
             if(nr == CARD_SWITCH){
                 value = 0;
                 switches++;
             }
-                
+               
+			// Add deck size if prismatic to make it on top
             if(deck == DECK_PRISM)
                 value += CARDS_IN_DECK;
             
@@ -207,19 +216,36 @@ onRoundEnd(){
                 HIGHEST_PLAYER = i;
                 
             }
+			
+			// Lowest non switch card
+			if(value < LOWEST_VALUE && value != 0 && value != CARDS_IN_DECK){
+			
+				LOWEST_VALUE = value;
+				LOWEST_PLAYER = i;
+			
+			}
             
         }
     }
     
     integer teamwin = HIGHEST_PLAYER%2;
+	integer WINNING_PLAYER = HIGHEST_PLAYER;
     
+	// Pick the lowest card
+	if(switches%2){
+		
+		// In a game with only switches, the first player wins
+		if(LOWEST_PLAYER == -1)
+			LOWEST_PLAYER = FIRST_TURN;
+			
+		teamwin = LOWEST_PLAYER%2;
+		WINNING_PLAYER = LOWEST_PLAYER;
+		
+	}
+	
     list scores = [COLOR_SCORE_BLUE, COLOR_SCORE_RED];
     
-    integer add = 1;
-    if(switches%2)
-        add = -add;
-    
-    integer n = getColorScore(l2i(scores, teamwin), cc)+add;
+    integer n = getColorScore(l2i(scores, teamwin), cc)+1;
     
     // Red wins
     if(teamwin)
@@ -230,19 +256,16 @@ onRoundEnd(){
     refreshColorScore();
     raiseEvent(swGameEvt$colorScore, mkarr(([COLOR_SCORE_BLUE, COLOR_SCORE_RED])));
     
-    integer won = !(switches%2);
-	if(!won)
-		won = -1;
-    refreshTurn(HIGHEST_PLAYER, won);
+    refreshTurn(WINNING_PLAYER, TRUE);
     
-    list out = [HIGHEST_PLAYER, mkarr(fxs)];
+    list out = [WINNING_PLAYER, mkarr(fxs)];
     raiseEvent(swGameEvt$roundEnd, mkarr(out));
     
     for(i=0; i<NUM_CARDS; ++i){
         
         if(llList2Integer(PLAYER_CARDS, i) != -1){
             
-            multiTimer(["ROUND_START", (str)HIGHEST_PLAYER, 2, FALSE]);
+            multiTimer(["ROUND_START", (str)WINNING_PLAYER, 2, FALSE]);
             return;
             
         }
@@ -452,9 +475,17 @@ onGameStart(){
     
 }
 
-onGameEnd(){
+onGameEnd(integer team_wins){
     
-    integer team_wins = GAME_SCORE_RED > GAME_SCORE_BLUE;
+	// Wipe all timers
+	multiTimer(["ROUND_END"]);
+	multiTimer(["ROUND_START"]);
+	multiTimer(["SET_END"]);
+	multiTimer(["SET_START"]);
+	multiTimer(["GAME_START"]);
+	multiTimer(["GAME_END"]);
+	
+	
     raiseEvent(swGameEvt$gameEnd, (str)team_wins);
     BFL = BFL&~BFL_GAME_STARTED;
     
@@ -532,7 +563,7 @@ calculateSeats(){
         
             if(!playersExist){
                 llWhisper(0, "Game has ended due to lack of players.");
-                return onGameEnd();
+                return onGameEnd(-1);
             }
         
             if(playIfBot){
@@ -573,7 +604,7 @@ timerEvent(string id, string data){
         onSetStart();
     
     else if(id == "GAME_END")
-        onGameEnd();
+        onGameEnd(GAME_SCORE_RED > GAME_SCORE_BLUE);
     
 }
 

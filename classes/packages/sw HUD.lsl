@@ -133,7 +133,7 @@ loadDialog(){
         "👙 JasX HUD"
     ];
             
-    llDialog(llGetOwner(), "Welcome to Switch!\n- First time playing? Hit HELP.\n- RLV Stripping? Get a JasX HUD!", buttons, DIALOG_CHAN);
+    llDialog(llGetOwner(), "🐼 Welcome to Switch! 🐼\n\n⚠️ NEW RULES in v0.2, see HELP.\n☝️ First time playing? Hit HELP.\n🔒 RLV Stripping? Get a JasX HUD!", buttons, DIALOG_CHAN);
     
 }
 
@@ -264,7 +264,7 @@ default
     } \
     if(chan == DIALOG_CHAN){ \
         if(message == "👙 JasX HUD") \
-            llGiveInventory(llGetOwner(), "JasX HUD 0.3.3"); \
+            llGiveInventory(llGetOwner(), "JasX HUD 0.4.0"); \
         else if(message == "❔Help") \
             llGiveInventory(llGetOwner(), "How To Play"); \
     }

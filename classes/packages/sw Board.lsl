@@ -37,7 +37,7 @@ onEvt(string script, integer evt, list data){
         
         }
         
-        if(evt == swGameEvt$gameEnd){
+        if(evt == swGameEvt$gameEnd && l2i(data, 0) != -1 ){
             
             vector color = <.5,.75,1>;
             if(l2i(data, 0))
@@ -115,15 +115,13 @@ timerEvent(string id, string data){
 }
 
 // If team is -1, turns off
-scoreParticles(integer team, integer deck, integer switched){
+scoreParticles(integer team, integer deck){
 	
 	list data = [];
 	if(~team){
 		
 		vector color = <.5,1,.5>;
-		if(switched)
-			color = <1,.5,.5>;
-		
+
 		data = [  
 			PSYS_PART_FLAGS,
 				PSYS_PART_EMISSIVE_MASK|
@@ -234,7 +232,7 @@ default
         // reset the score counters
         swBoard$setScore(0,0);
         
-        scoreParticles(-1, 0, 0);
+        scoreParticles(-1, 0);
         
     }
     
@@ -273,7 +271,7 @@ default
         
         list out = [];
         
-        integer i;
+        integer i; integer switches;
         for(i=0; i<4; i++){
             
             // Bitwise combination. 4 rightmost bits are the card ID, 3 to the left of that are deck ID
@@ -289,6 +287,9 @@ default
             // qd("Player "+(str)i +" >> Card: "+(str)cardPlayed+" Deck: "+(str)deckPlayed+" Effect: "+(str)cardSpecials);
             if(~cardPlayed){
                 
+				if(cardPlayed == CARD_SWITCH)
+					++switches;
+					
                 integer offset = cardPlayed+(deckPlayed*12);
                 integer y = llFloor(offset/TX_CARDS_X);
                 integer x = offset-(y*TX_CARDS_X);
@@ -338,7 +339,13 @@ default
         }
         
         PP(0,out);
+		
+		if(switches%2)
+			llSetLinkTextureAnim(PRIM_CENTER, ANIM_ON|SMOOTH|LOOP|ROTATE, 0, 0,0, 0,TWO_PI, 1);
+        else
+			llSetLinkTextureAnim(PRIM_CENTER, 0, 0, 0,0, 0,0, 0);
         
+		
     }
     
 	
@@ -368,15 +375,9 @@ default
                     glow = 0.3;
 					
                 }
-                else if(won == -1){
-				
-                    color = <1,0,0>;
-                    glow = 0.3;
-					
-                }
 				
 				if(won != 0){
-					scoreParticles(player%2, ROUND_COLOR, won != 1);
+					scoreParticles(player%2, ROUND_COLOR);
 				}
                     
                 l = [PRIM_COLOR, face, color, 1, PRIM_FULLBRIGHT, face, TRUE, PRIM_GLOW, face, glow];
@@ -471,7 +472,7 @@ default
                             
                 // Calculate if the bulb should be on or off
                 integer score = l2i(scores, team);
-                
+                integer otherScore = l2i(scores, team-1);
                 
                 list bulb = [PRIM_COLOR, BULB_FACE_LAMP, l2v(DECK_GLOWS, i)*.2, 1, PRIM_FULLBRIGHT, BULB_FACE_LAMP, FALSE, PRIM_GLOW, BULB_FACE_LAMP, 0];
                 if(team == winningTeam)
@@ -489,21 +490,16 @@ default
                 ];
                 
                 // Colorize the score NUMBERS
-                if(score > 0)
+				// We are in the lead
+                if(score > otherScore)
                     out+= [PRIM_COLOR, BULB_FACE_SCORE, <.5,1,.5>, 1];
-                else if(score<0)
-                    out+= [PRIM_COLOR, BULB_FACE_SCORE, <0.5,.5,1>, 1];
-                else
-                    out+= [PRIM_COLOR, BULB_FACE_SCORE, <1,1,1>, 1];
+				// We are not leading
+				else
+					out+= [PRIM_COLOR, BULB_FACE_SCORE, <.5,.5,.5>, 1];
                 
-                
-                // Set the +- icons
+                // Polarity icons
                 vector polarityPos = <1./TX_NUMBERS_X/2+1./TX_NUMBERS_X, 0,0>;
                 vector polarityColor = <.5,1,.5>;
-                if(score<0){
-                    polarityPos.x += 1./TX_NUMBERS_X; 
-                    polarityColor = <.5,.5,1>;
-                }
                 out+= [
                     PRIM_TEXTURE, BULB_FACE_POLARITY, TX_NUMBERS, 
                     <1./TX_NUMBERS_X, 1./TX_NUMBERS_Y,0>, 

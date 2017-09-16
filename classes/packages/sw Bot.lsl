@@ -4,7 +4,7 @@
 integer COLOR_SCORE_BLUE = DEFAULT_COLORSCORE;
 integer COLOR_SCORE_RED = DEFAULT_COLORSCORE;
 
-integer DIFFICULTY = 1;
+integer DIFFICULTY = 2;
 
 onEvt(string script, integer evt, list data){
     
@@ -149,7 +149,7 @@ default
         
         
         list cards = reverse(llJson2List(method_arg(0)));    // 8-bit Card flags
-        integer roundcolor = l2i(PARAMS, 1);        // -1 to 3, -1 means you go first
+        integer roundcolor = l2i(PARAMS, 1);        // -1 to 3, -1 means nobody has played a card yet (you begin the round)
         integer cards_played = l2i(PARAMS, 2);      // Cards played so far this round
         integer first_player = l2i(PARAMS, 3);      // Player who went first 0-3
         integer player_index = l2i(PARAMS, 4);      // index of the bot, 0-3
@@ -168,12 +168,15 @@ default
         integer isSwitched;         // If the board currently is switched
         integer highestCard = -1;   // Card that is currently the highest
         integer highestTeam = -1;   // Team owning the highest card
+		integer lowestCard = -1;	// Card that is currently the lowest
+        integer lowestTeam = -1;	// Team owning the lowest non switch card
         integer play = -1;               // Card we want to play
         integer has_card_color;     // Has a card of round color
         list score_offsets;         // Scoring offsets compared to the other team
         integer leadingOnBoard;     // Nr color points we are ahead, can be negative
-                
-        
+        integer numViableCards;		// Nr cards in proper suit and NOT A SWITCH
+
+		
         // Calculate score offsets
         for(i=0; i<4; ++i){
             
@@ -200,31 +203,37 @@ default
             integer cdata = (cards_played>>(8*(3-n)))&255; // 8bit
             
             integer cValue = getCardScore(cdata);
-            
-            if(cardNumber(cdata) == CARD_SWITCH)
+            integer isSwitch = cardNumber(cdata) == CARD_SWITCH;
+            if(isSwitch)
                 isSwitched = !isSwitched;
 
             if(cdata > 0)
                 cp_data += cdata;       // Add to the list of played cards
-            else
-                i = 100;                // Break
+            // There is no card played here, break
+			else
+                jump minMaxDone;                // Break
             
             if(cValue > getCardScore(highestCard) || highestCard == -1){
-                /*
-                if(highestCard != -1)
-                    qd("Highest card is now "+l2s(COLORS, cardDeckNumber(cdata))+" "+(str)cardNumber(cdata)+" because it beats "+l2s(COLORS, cardDeckNumber(highestCard))+" "+(str)cardNumber(highestCard)+". Player is "+(str)n+" who belongs to team "+(str)(n%2));
-                */
+
                 highestCard = cdata;
                 highestTeam = n%2;
                 
             }
             
+			if((cValue < getCardScore(lowestCard) || lowestCard == -1) && !isSwitch){
+				
+				lowestCard = cdata;
+				lowestTeam = n%2;
+			
+			}
+
             if(++n>3)
                 n = 0;
                 
             
         }
-        
+		@minMaxDone;
+		
         
         has_card_color = count(getDeckByColor(cards, roundcolor));
         
@@ -250,12 +259,15 @@ default
             ){
                 
                 viable += card;
+				if( card != CARD_SWITCH )
+					++numViableCards;
                 
             }
             
         }
         // Give normal bots a 20% chance of a misplay
         if(DIFFICULTY > 0 && (DIFFICULTY == 2 || llFrand(1) < 0.8)){
+		
             // We go first
             if(roundcolor == -1 && (DIFFICULTY >= 2 || llFrand(1)<.5)){
                 
@@ -386,10 +398,11 @@ default
                 list inSuit = getDeckByColor(cards, roundcolor);
                 
                 
-                // Try to switch if possible, allow prism switch if you're the last player
-                if(isSwitched && highestTeam == team){
+                // Try to UNSWITCH an already switched, allow prism switch if you're the last player
+				// Note that this if statement will not be valid for prism because there is only 1 prism switch
+                if(isSwitched && highestTeam == team && count(cp_data) == 3){
                         
-                    // Switch is always last
+                    // Switch is always last card in the list sort
                     integer c = l2i(inSuit, -1);
                     if(cardNumber(c) == CARD_SWITCH){
                         
@@ -399,24 +412,52 @@ default
                     }
                     
                     c = l2i(prismatics, -1);
-                    if(play == -1 && cardNumber(c) == CARD_SWITCH && count(cp_data) >= 3){
+					
+                    if(
+						// Do not waste prism switch if in suit switch exists
+						play == -1 && 
+						// We have a switch
+						cardNumber(c) == CARD_SWITCH && 
+						// We are behind on this and this will result in a victory
+						!leadingOnBoard &&
+						(
+							// Small chance if we are behind and this is a sure bet. 
+							llFrand(1) < 0.25 || 
+							// Sure bet if we can't win prismatic
+							(  
+								count(getDeckByColor(cards, DECK_PRISM)) < llAbs(l2i(score_offsets, DECK_PRISM)) && 
+								l2i(score_offsets, DECK_PRISM) < 0 
+							)
+						)
+					){
                         
                         play = c;
-                        reason("Using prismatic switch to unswitch and win");
+                        reason("Using prismatic switch to unswitch");
                         
                     }
                         
                 }
                     
-                // Try to switch if possible, allow prism switch only if the leading card is prismatic
-                if(play == -1 && !isSwitched && highestTeam != team){
+                // Try to SWITCH if possible, allow prism switch only if the leading card is prismatic
+                if(
+					// We have not decided on a play yet
+					play == -1 && 
+					// The board is not already switched
+					!isSwitched && 
+					// We have not played the highest card
+					lowestTeam == team && 
+					// The highest card is not the only viable card
+					numViableCards &&
+					// This is the final turn
+					count(cp_data) == 3
+				){
                     
                     // Switch is always last
                     integer c = l2i(inSuit, -1);
                     if(cardNumber(c) == CARD_SWITCH){
                         
                         play = c;
-                        reason("Playing switch to undo a losing round. Pre SWITCHED was "+(str)isSwitched+" and us winning prior to switch was "+(str)(highestTeam == team));
+                        reason("Playing switch to undo a losing round. Pre SWITCHED was "+(str)isSwitched+" and us lowest team = "+(str)(lowestTeam == team));
                         
                     }
                     
@@ -430,6 +471,7 @@ default
                         
                 }
                 
+				// We have cards this color
                 if(inSuit){
                     
                     // Play the lowest card in hand if switched or we're already winning. Switch dynamic is handled above
